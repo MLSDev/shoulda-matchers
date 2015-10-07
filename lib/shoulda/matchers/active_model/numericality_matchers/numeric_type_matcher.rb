@@ -4,26 +4,30 @@ module Shoulda
       module NumericalityMatchers
         # @private
         class NumericTypeMatcher
-          def initialize
-            raise NotImplementedError
-          end
+          delegate :matches?, :failure_message, :failure_message_when_negated,
+            to: :disallow_value_matcher
 
-          def matches?(subject)
-            @disallow_value_matcher.matches?(subject)
+          def initialize(numeric_type_matcher, attribute, options = {})
+            @numeric_type_matcher = numeric_type_matcher
+            @attribute = attribute
+            @options = options
+            @message = nil
+            @context = nil
+            @strict = false
           end
 
           def with_message(message)
-            @disallow_value_matcher.with_message(message)
+            @message = message
             self
           end
 
           def strict
-            @disallow_value_matcher.strict
+            @strict = true
             self
           end
 
           def on(context)
-            @disallow_value_matcher.on(context)
+            @context = context
             self
           end
 
@@ -35,12 +39,39 @@ module Shoulda
             raise NotImplementedError
           end
 
-          def failure_message
-            @disallow_value_matcher.failure_message
+          protected
+
+          attr_reader :attribute
+
+          def wrap_disallow_value_matcher(matcher)
+            raise NotImplementedError
           end
 
-          def failure_message_when_negated
-            @disallow_value_matcher.failure_message_when_negated
+          def disallowed_value
+            raise NotImplementedError
+          end
+
+          private
+
+          def disallow_value_matcher
+            @_disallow_value_matcher ||= begin
+              DisallowValueMatcher.new(disallowed_value).tap do |matcher|
+                matcher.for(attribute)
+                wrap_disallow_value_matcher(matcher)
+
+                if @message
+                  matcher.with_message(@message)
+                end
+
+                if @strict
+                  matcher.strict
+                end
+
+                if @context
+                  matcher.on(@context)
+                end
+              end
+            end
           end
         end
       end
